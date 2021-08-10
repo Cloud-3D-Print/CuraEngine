@@ -193,6 +193,11 @@ public:
     {
         return path.getExtrusionMM3perMM() * path.config->getSpeed() * path.speed_factor * path.speed_back_pressure_factor;
     }
+
+    bool shouldCountPath(const GCodePath& path) const
+    {
+        return path.flow > 0.0 && path.config->getFlowRatio() > 0.0 && path.config->getLineWidth() > 0.0 && ! path.config->isTravelPath() && ! path.config->isBridgePath();
+    }
 };
 
 INSTANTIATE_TEST_CASE_P(ExtruderPlanTestInstantiation, ExtruderPlanPathsParameterizedTest, testing::Values(
@@ -249,8 +254,8 @@ TEST_P(ExtruderPlanPathsParameterizedTest, BackPressureCompensationZeroIsUncompe
     ASSERT_EQ(extruder_plan.paths.size(), original_flows.size()) << "Number of paths may not have changed.";
     for(size_t i = 0; i < extruder_plan.paths.size(); ++i)
     {
-        EXPECT_EQ(original_flows[i], extruder_plan.paths[i].flow) << "The flow rate did not change. Back pressure compensation doesn't adjust flow.";
-        EXPECT_EQ(original_speeds[i], extruder_plan.paths[i].speed_factor) << "The speed factor did not change, since the compensation factor was 0.";
+        EXPECT_DOUBLE_EQ(original_flows[i], extruder_plan.paths[i].flow) << "The flow rate did not change. Back pressure compensation doesn't adjust flow.";
+        EXPECT_DOUBLE_EQ(original_speeds[i], extruder_plan.paths[i].speed_factor) << "The speed factor did not change, since the compensation factor was 0.";
     }
 }
 
@@ -263,8 +268,8 @@ TEST_P(ExtruderPlanPathsParameterizedTest, BackPressureCompensationFull)
     extruder_plan.paths = GetParam();
     extruder_plan.applyBackPressureCompensation(1.0_r);
 
-    auto first_extrusion = std::find_if(extruder_plan.paths.begin(), extruder_plan.paths.end(), [](GCodePath& path) {
-        return !path.config->isTravelPath();
+    auto first_extrusion = std::find_if(extruder_plan.paths.begin(), extruder_plan.paths.end(), [&](GCodePath& path) {
+        return this->shouldCountPath(path);
     });
     if(first_extrusion == extruder_plan.paths.end()) //Only travel moves in this plan.
     {
@@ -275,12 +280,12 @@ TEST_P(ExtruderPlanPathsParameterizedTest, BackPressureCompensationFull)
 
     for(GCodePath& path : extruder_plan.paths)
     {
-        if(path.config->isTravelPath())
+        if(! shouldCountPath(path))
         {
             continue; //Ignore travel moves.
         }
         const double flow_mm3_per_sec = calculatePathFlow(path);
-        EXPECT_EQ(flow_mm3_per_sec, first_flow_mm3_per_sec) << "Every path must have a flow rate equal to the first, since the flow changes were completely compensated for.";
+        EXPECT_DOUBLE_EQ(flow_mm3_per_sec, first_flow_mm3_per_sec) << "Every path must have a flow rate equal to the first, since the flow changes were completely compensated for.";
     }
 }
 
@@ -295,7 +300,7 @@ TEST_P(ExtruderPlanPathsParameterizedTest, BackPressureCompensationHalf)
     std::vector<double> original_flows;
     for(GCodePath& path : extruder_plan.paths)
     {
-        if(path.config->isTravelPath())
+        if (! shouldCountPath(path))
         {
             continue; //Ignore travel moves.
         }
@@ -310,7 +315,7 @@ TEST_P(ExtruderPlanPathsParameterizedTest, BackPressureCompensationHalf)
     std::vector<double> new_flows;
     for(GCodePath& path : extruder_plan.paths)
     {
-        if(path.config->isTravelPath())
+        if (! shouldCountPath(path))
         {
             continue; //Ignore travel moves.
         }
