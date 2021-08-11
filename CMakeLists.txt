@@ -299,7 +299,7 @@ if(WIN32)
 endif(WIN32)
 
 if (UNIX)
-    target_link_libraries(_CuraEngine pthread)
+#    target_link_libraries(_CuraEngine pthread)
 endif()
 
 if (NOT WIN32)
