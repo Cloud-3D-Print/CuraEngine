@@ -92,9 +92,8 @@ public:
  * This is a facade. It behaves like a double, but this is using clock
  * arithmetic which guarantees that the value is always between 0 and 2 * pi.
  */
-class AngleRadians
+struct AngleRadians
 {
-public:
     /*
      * \brief Default constructor setting the angle to 0.
      */
